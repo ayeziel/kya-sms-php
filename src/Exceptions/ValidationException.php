@@ -60,9 +60,10 @@ class ValidationException extends KyaSmsException
      * Create from API validation response
      *
      * @param array<string, mixed> $response
+     * @param int $statusCode
      * @return static
      */
-    public static function fromApiResponse(array $response): static
+    public static function fromApiResponse(array $response, int $statusCode = 422): static
     {
         $errors = $response['errors'] ?? [];
         $message = $response['message'] ?? 'Validation failed';

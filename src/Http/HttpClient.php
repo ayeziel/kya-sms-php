@@ -47,7 +47,7 @@ class HttpClient
         array $options = []
     ) {
         $this->apiKey = $apiKey;
-        $this->baseUrl = rtrim($baseUrl, '/');
+        $this->baseUrl = rtrim($baseUrl, '/') . '/';
         $this->logger = $options['logger'] ?? new NullLogger();
         $this->debug = $options['debug'] ?? false;
 
@@ -304,6 +304,11 @@ class HttpClient
         // Forbidden
         if ($statusCode === 403) {
             throw AuthenticationException::accountDisabled();
+        }
+
+        // Not Found
+        if ($statusCode === 404) {
+            throw new ApiException('La ressource demandée n\'existe pas. Vérifiez l\'endpoint.', 404, 404);
         }
 
         // Validation errors

@@ -41,6 +41,16 @@ class ApiException extends KyaSmsException
     }
 
     /**
+     * Get status code (alias for getHttpStatusCode)
+     *
+     * @return int
+     */
+    public function getStatusCode(): int
+    {
+        return $this->httpStatusCode ?? $this->code;
+    }
+
+    /**
      * Create exception for rate limiting
      *
      * @param int $retryAfter Seconds to wait before retrying

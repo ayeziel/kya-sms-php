@@ -3,7 +3,11 @@
 /**
  * KYA SMS SDK - OTP Examples
  * 
- * This file demonstrates various ways to send OTP using the KYA SMS SDK.
+ * This file demonstrates various ways to send and verify OTP using the KYA SMS SDK.
+ * 
+ * Endpoints used:
+ * - POST /otp/create - Send OTP
+ * - POST /otp/verify - Verify OTP
  */
 
 require_once __DIR__ . '/../vendor/autoload.php';
@@ -37,7 +41,7 @@ try {
     }
 
     // ========================================
-    // Example 2: OTP with English language
+    // Example 2: OTP in English
     // ========================================
     echo "\nExample 2: OTP in English\n";
     echo "-------------------------\n";
@@ -101,7 +105,7 @@ try {
     )
     ->expiresIn5Minutes(); // Convenience method
 
-    $response = $client->otp()->initiate($otpRequest);
+    $response = $client->otp()->create($otpRequest);
 
     if ($response->isSuccess()) {
         echo "✅ 2FA OTP sent!\n";
@@ -109,24 +113,86 @@ try {
     }
 
     // ========================================
-    // Example 6: OTP for Email
+    // Example 6: Verify OTP Code
     // ========================================
-    echo "\nExample 6: OTP for Email (if configured)\n";
-    echo "-----------------------------------------\n";
+    echo "\nExample 6: Verify OTP Code\n";
+    echo "--------------------------\n";
 
-    // Note: Your OTP application must be configured to support email
-    $response = $client->otp()->send(
-        appId: 'app_email_verification',
-        recipient: 'user@example.com',
-        lang: 'en'
+    // First, send an OTP
+    $sendResponse = $client->otp()->send('app_login', '22990123456', 'fr');
+    $otpKey = $sendResponse->getKey();
+
+    // Simulate user entering the code
+    $userEnteredCode = '123456'; // In real app, this comes from user input
+
+    // Verify the code
+    $verifyResult = $client->otp()->verify(
+        appId: 'app_login',
+        key: $otpKey,
+        code: $userEnteredCode
     );
 
-    echo "Email OTP Key: " . $response->getKey() . "\n";
+    if ($client->otp()->isVerified($verifyResult)) {
+        echo "✅ OTP verified successfully!\n";
+    } else {
+        echo "❌ Verification failed: {$verifyResult['msg']}\n";
+        
+        // Handle specific error codes
+        switch ($verifyResult['status']) {
+            case 100:
+                echo "Invalid verification key\n";
+                break;
+            case 101:
+                echo "Max attempts reached or IP changed\n";
+                break;
+            case 102:
+                echo "Incorrect code - try again\n";
+                break;
+            case 103:
+                echo "Code expired - request a new one\n";
+                break;
+        }
+    }
 
     // ========================================
-    // Example 7: OTP with All Languages
+    // Example 7: Complete OTP Flow
     // ========================================
-    echo "\nExample 7: Multi-language OTP Support\n";
+    echo "\n=== Complete OTP Verification Flow ===\n";
+    echo "--------------------------------------\n";
+
+    // Step 1: User requests OTP (e.g., for login)
+    echo "Step 1: Sending OTP...\n";
+    $response = $client->otp()->send('app_login', '22990123456', 'fr');
+    
+    if ($response->isSuccess()) {
+        $otpKey = $response->getKey();
+        
+        // Step 2: Store the key (in session, database, etc.)
+        echo "Step 2: Store key: {$otpKey}\n";
+        // $_SESSION['otp_key'] = $otpKey;
+        // $_SESSION['otp_app_id'] = 'app_login';
+        
+        // Step 3: Wait for user to enter the code
+        echo "Step 3: Waiting for user to enter code...\n";
+        // In real app: get code from form submission
+        $codeFromUser = '123456';
+        
+        // Step 4: Verify the code
+        echo "Step 4: Verifying code...\n";
+        $result = $client->otp()->verify('app_login', $otpKey, $codeFromUser);
+        
+        if ($client->otp()->isVerified($result)) {
+            echo "✅ User authenticated successfully!\n";
+            // Allow login, complete action, etc.
+        } else {
+            echo "❌ Authentication failed\n";
+        }
+    }
+
+    // ========================================
+    // Example 8: Multi-language OTP Support
+    // ========================================
+    echo "\nExample 8: Multi-language OTP Support\n";
     echo "--------------------------------------\n";
 
     $languages = [
@@ -137,31 +203,7 @@ try {
     ];
 
     foreach ($languages as $langCode => $langName) {
-        echo "Sending OTP in {$langName}...\n";
-        // In production, you would only send to the user's preferred language
-    }
-
-    // ========================================
-    // Typical Flow: Send and Store Reference
-    // ========================================
-    echo "\n=== Typical OTP Verification Flow ===\n";
-    echo "-------------------------------------\n";
-
-    // Step 1: User requests OTP
-    $response = $client->otp()->send('app_login', '22990123456', 'fr');
-    
-    if ($response->isSuccess()) {
-        $otpKey = $response->getKey();
-        
-        // Step 2: Store the key in your database/session
-        // In production: 
-        // $_SESSION['otp_key'] = $otpKey;
-        // Or store in database: $user->otp_key = $otpKey;
-        
-        echo "1. OTP sent to user's phone\n";
-        echo "2. Store reference key: {$otpKey}\n";
-        echo "3. User enters the code they received\n";
-        echo "4. Verify using your OTP verification endpoint\n";
+        echo "Available language: {$langName} ({$langCode})\n";
     }
 
 } catch (ValidationException $e) {

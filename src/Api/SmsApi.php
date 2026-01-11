@@ -15,7 +15,9 @@ use KyaSms\Exceptions\ValidationException;
 class SmsApi
 {
     private HttpClient $client;
-    private string $endpoint = '/api/v3/sms/send';
+    private string $sendEndpoint = 'sms/send';
+    private string $statusEndpoint = 'message/status';
+    private string $historyEndpoint = 'sms/history';
 
     /**
      * @param HttpClient $client
@@ -36,7 +38,7 @@ class SmsApi
     {
         $this->validate($message);
         
-        $response = $this->client->post($this->endpoint, $message->toArray());
+        $response = $this->client->post($this->sendEndpoint, $message->toArray());
         
         return SmsResponse::fromResponse($response);
     }
@@ -132,6 +134,90 @@ class SmsApi
             ->setBulk(true);
 
         return $this->send($sms);
+    }
+
+    /**
+     * Get status of multiple messages
+     *
+     * @param array<string> $messageIds Array of message IDs (max 100)
+     * @return array<string, array{phone: string, status: string, route: string, updated_at: string}>
+     * @throws ValidationException
+     */
+    public function getStatus(array $messageIds): array
+    {
+        if (empty($messageIds)) {
+            throw new ValidationException('Validation failed', ['message_ids' => 'At least one message ID is required']);
+        }
+
+        if (count($messageIds) > 100) {
+            throw new ValidationException('Validation failed', ['message_ids' => 'Maximum 100 message IDs per request']);
+        }
+
+        $response = $this->client->post($this->statusEndpoint, [
+            'message_ids' => $messageIds,
+        ]);
+
+        return $response['data'] ?? [];
+    }
+
+    /**
+     * Get single message status
+     *
+     * @param string $messageId Message ID
+     * @return array{phone: string, status: string, route: string, updated_at: string}|null
+     */
+    public function getMessageStatus(string $messageId): ?array
+    {
+        $statuses = $this->getStatus([$messageId]);
+        return $statuses[$messageId] ?? null;
+    }
+
+    /**
+     * Check if message was delivered
+     *
+     * @param string $messageId Message ID
+     * @return bool
+     */
+    public function isDelivered(string $messageId): bool
+    {
+        $status = $this->getMessageStatus($messageId);
+        return $status !== null && ($status['status'] ?? '') === 'DELIVERED';
+    }
+
+    /**
+     * Get SMS history with optional filters
+     *
+     * @param string|null $startDate Start date (YYYY-MM-DD)
+     * @param string|null $endDate End date (YYYY-MM-DD)
+     * @param int $page Page number
+     * @param int $perPage Items per page (max 100)
+     * @return array{messages: array, pagination: array}
+     */
+    public function getHistory(
+        ?string $startDate = null,
+        ?string $endDate = null,
+        int $page = 1,
+        int $perPage = 50
+    ): array {
+        $data = [
+            'page' => $page,
+            'per_page' => min($perPage, 100),
+        ];
+
+        if ($startDate !== null) {
+            $data['start_date'] = $startDate;
+        }
+
+        if ($endDate !== null) {
+            $data['end_date'] = $endDate;
+        }
+
+        $response = $this->client->post($this->historyEndpoint, $data);
+
+        return [
+            'messages' => $response['data']['messages'] ?? [],
+            'pagination' => $response['data']['pagination'] ?? [],
+        ];
     }
 
     /**

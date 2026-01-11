@@ -10,6 +10,7 @@ namespace KyaSms\Models;
 class SmsResponse
 {
     private bool $success;
+    private ?string $reason;
     private ?string $taskId;
     private ?string $status;
     private ?string $from;
@@ -26,6 +27,7 @@ class SmsResponse
     public function __construct(array $response)
     {
         $this->success = ($response['reason'] ?? '') === 'success';
+        $this->reason = $response['reason'] ?? null;
         $this->taskId = $response['task_id'] ?? null;
         $this->status = $response['status'] ?? null;
         $this->from = $response['from'] ?? null;
@@ -59,6 +61,112 @@ class SmsResponse
     }
 
     /**
+     * Get reason (success or error reason)
+     *
+     * @return string|null
+     */
+    public function getReason(): ?string
+    {
+        return $this->reason;
+    }
+
+    /**
+     * Get the first message ID (convenience method for single SMS)
+     *
+     * @return string|null
+     */
+    public function getMessageId(): ?string
+    {
+        return $this->data[0]['messageId'] ?? null;
+    }
+
+    /**
+     * Get all message IDs
+     *
+     * @return array<string>
+     */
+    public function getMessageIds(): array
+    {
+        return array_column($this->data, 'messageId');
+    }
+
+    /**
+     * Get the first message status (convenience method for single SMS)
+     *
+     * @return string|null
+     */
+    public function getStatus(): ?string
+    {
+        return $this->data[0]['status'] ?? $this->status;
+    }
+
+    /**
+     * Get the route used for the first message
+     *
+     * @return string|null
+     */
+    public function getRoute(): ?string
+    {
+        return $this->data[0]['route'] ?? null;
+    }
+
+    /**
+     * Get the price for the first message
+     *
+     * @return float|null
+     */
+    public function getPrice(): ?float
+    {
+        $price = $this->data[0]['price'] ?? null;
+        return $price !== null ? (float) $price : null;
+    }
+
+    /**
+     * Get total price for all messages
+     *
+     * @return float
+     */
+    public function getTotalPrice(): float
+    {
+        $total = 0;
+        foreach ($this->data as $item) {
+            $total += (float) ($item['price'] ?? 0);
+        }
+        return $total;
+    }
+
+    /**
+     * Get SMS parts count for the first message
+     *
+     * @return int|null
+     */
+    public function getSmsPart(): ?int
+    {
+        $part = $this->data[0]['sms_part'] ?? null;
+        return $part !== null ? (int) $part : null;
+    }
+
+    /**
+     * Get recipient phone number for the first message
+     *
+     * @return string|null
+     */
+    public function getTo(): ?string
+    {
+        return $this->data[0]['to'] ?? null;
+    }
+
+    /**
+     * Get created_at timestamp for the first message
+     *
+     * @return string|null
+     */
+    public function getCreatedAt(): ?string
+    {
+        return $this->data[0]['created_at'] ?? null;
+    }
+
+    /**
      * Check if the SMS is queued for processing
      *
      * @return bool
@@ -76,16 +184,6 @@ class SmsResponse
     public function getTaskId(): ?string
     {
         return $this->taskId;
-    }
-
-    /**
-     * Get status
-     *
-     * @return string|null
-     */
-    public function getStatus(): ?string
-    {
-        return $this->status;
     }
 
     /**
@@ -119,13 +217,23 @@ class SmsResponse
     }
 
     /**
-     * Get processed data
+     * Get processed data (all messages)
      *
      * @return array<int, array<string, mixed>>
      */
     public function getData(): array
     {
         return $this->data;
+    }
+
+    /**
+     * Get first message data
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getFirstMessage(): ?array
+    {
+        return $this->data[0] ?? null;
     }
 
     /**
@@ -149,13 +257,13 @@ class SmsResponse
     }
 
     /**
-     * Get message
+     * Get message content
      *
      * @return string|null
      */
     public function getMessage(): ?string
     {
-        return $this->message;
+        return $this->data[0]['message'] ?? $this->message;
     }
 
     /**
@@ -187,6 +295,7 @@ class SmsResponse
     {
         return [
             'success' => $this->success,
+            'reason' => $this->reason,
             'task_id' => $this->taskId,
             'status' => $this->status,
             'from' => $this->from,

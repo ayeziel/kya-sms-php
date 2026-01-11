@@ -50,8 +50,9 @@ class KyaSms
     /**
      * Create a new KYA SMS client
      *
-     * @param string $apiKey Your API key
-     * @param array<string, mixed> $options Configuration options
+     * @param string|array<string, mixed> $apiKeyOrConfig API key string or configuration array
+     * @param string|array<string, mixed> $options Base URL string or configuration options
+     *   - api_key: string - Your API key (required if first param is array)
      *   - base_url: string - API base URL (default: https://route.kyasms.com/api/v3)
      *   - timeout: int - Request timeout in seconds (default: 30)
      *   - connect_timeout: int - Connection timeout in seconds (default: 10)
@@ -59,8 +60,23 @@ class KyaSms
      *   - logger: LoggerInterface - PSR-3 logger instance
      * @throws AuthenticationException if API key is missing
      */
-    public function __construct(string $apiKey, array $options = [])
+    public function __construct(string|array $apiKeyOrConfig, string|array $options = [])
     {
+        // Handle different constructor signatures
+        if (is_array($apiKeyOrConfig)) {
+            // new KyaSms(['api_key' => '...', 'debug' => true])
+            $config = $apiKeyOrConfig;
+            $apiKey = $config['api_key'] ?? '';
+            unset($config['api_key']);
+            $options = $config;
+        } else {
+            // new KyaSms('api-key') or new KyaSms('api-key', 'base-url') or new KyaSms('api-key', [...])
+            $apiKey = $apiKeyOrConfig;
+            if (is_string($options)) {
+                $options = ['base_url' => $options];
+            }
+        }
+
         if (empty($apiKey)) {
             throw AuthenticationException::missingApiKey();
         }

@@ -16,8 +16,10 @@ use DateTimeInterface;
 class CampaignApi
 {
     private HttpClient $client;
-    private string $createEndpoint = '/api/v3/campaign/create';
-    private string $statusEndpoint = '/api/v3/campaign/{id}/status';
+    private string $createEndpoint = 'sms/campaign/create';
+    private string $statusEndpoint = 'sms/campaign/status/{id}';
+    private string $recordsEndpoint = 'sms/campaign/records';
+    private string $calculateCostEndpoint = 'sms/campaign/calculate-cost';
 
     /**
      * @param HttpClient $client
@@ -154,6 +156,55 @@ class CampaignApi
         $response = $this->client->get($endpoint);
         
         return CampaignResponse::fromResponse($response);
+    }
+
+    /**
+     * Get campaign records/history
+     *
+     * @param int $page Page number
+     * @param int $perPage Items per page
+     * @return array{campaigns: array, pagination: array}
+     */
+    public function getRecords(int $page = 1, int $perPage = 20): array
+    {
+        $response = $this->client->get($this->recordsEndpoint, [
+            'page' => (string) $page,
+            'per_page' => (string) $perPage,
+        ]);
+
+        return [
+            'campaigns' => $response['data']['campaigns'] ?? [],
+            'pagination' => $response['data']['pagination'] ?? [],
+        ];
+    }
+
+    /**
+     * Calculate campaign cost estimate
+     *
+     * @param array<string> $groups Group IDs
+     * @param string $message Message content
+     * @return array
+     */
+    public function calculateCost(array $groups, string $message): array
+    {
+        $response = $this->client->post($this->calculateCostEndpoint, [
+            'groups' => $groups,
+            'message' => $message,
+        ]);
+
+        $data = $response['data'] ?? $response;
+
+        return [
+            'estimated_cost' => (float) ($data['estimated_cost'] ?? 0),
+            'total_recipients' => (int) ($data['total_recipients'] ?? 0),
+            'valid_recipients' => (int) ($data['valid_recipients'] ?? $data['total_recipients'] ?? 0),
+            'invalid_contacts' => (int) ($data['invalid_contacts'] ?? 0),
+            'total_sms_parts' => (int) ($data['total_sms_parts'] ?? 0),
+            'average_sms_parts' => (float) ($data['average_sms_parts'] ?? 0),
+            'message_info' => $data['message_info'] ?? [],
+            'country_breakdown' => $data['country_breakdown'] ?? [],
+            'groups_info' => $data['groups_info'] ?? [],
+        ];
     }
 
     /**

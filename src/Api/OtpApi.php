@@ -15,7 +15,8 @@ use KyaSms\Exceptions\ValidationException;
 class OtpApi
 {
     private HttpClient $client;
-    private string $endpoint = '/api/v3/otp/initiate';
+    private string $createEndpoint = 'otp/create';
+    private string $verifyEndpoint = 'otp/verify';
 
     /**
      * @param HttpClient $client
@@ -26,19 +27,30 @@ class OtpApi
     }
 
     /**
-     * Initiate OTP verification
+     * Create and send OTP
      *
      * @param OtpRequest $request
      * @return OtpResponse
      * @throws ValidationException
      */
-    public function initiate(OtpRequest $request): OtpResponse
+    public function create(OtpRequest $request): OtpResponse
     {
         $this->validate($request);
         
-        $response = $this->client->post($this->endpoint, $request->toArray());
+        $response = $this->client->post($this->createEndpoint, $request->toArray());
         
         return OtpResponse::fromResponse($response);
+    }
+
+    /**
+     * Alias for create() - backward compatibility
+     *
+     * @param OtpRequest $request
+     * @return OtpResponse
+     */
+    public function initiate(OtpRequest $request): OtpResponse
+    {
+        return $this->create($request);
     }
 
     /**
@@ -53,7 +65,7 @@ class OtpApi
     {
         $request = OtpRequest::create($appId, $recipient, $lang);
         
-        return $this->initiate($request);
+        return $this->create($request);
     }
 
     /**
@@ -80,7 +92,7 @@ class OtpApi
             $request->setMinutes($minutes);
         }
 
-        return $this->initiate($request);
+        return $this->create($request);
     }
 
     /**
@@ -101,7 +113,52 @@ class OtpApi
         $request = OtpRequest::create($appId, $recipient, $lang)
             ->setMinutes($minutes);
 
-        return $this->initiate($request);
+        return $this->create($request);
+    }
+
+    /**
+     * Verify OTP code
+     *
+     * @param string $appId Application ID
+     * @param string $key Key returned from create()
+     * @param string $code OTP code entered by user
+     * @return array{reason: string, status: int, msg: string}
+     */
+    public function verify(string $appId, string $key, string $code): array
+    {
+        if (empty($appId)) {
+            throw new ValidationException('Validation failed', ['appId' => 'Application ID is required']);
+        }
+        if (empty($key)) {
+            throw new ValidationException('Validation failed', ['key' => 'Verification key is required']);
+        }
+        if (empty($code)) {
+            throw new ValidationException('Validation failed', ['code' => 'OTP code is required']);
+        }
+
+        $response = $this->client->post($this->verifyEndpoint, [
+            'appId' => $appId,
+            'key' => $key,
+            'code' => $code,
+        ]);
+
+        return [
+            'reason' => $response['reason'] ?? '',
+            'status' => (int) ($response['status'] ?? 0),
+            'msg' => $response['msg'] ?? '',
+        ];
+    }
+
+    /**
+     * Check if OTP verification was successful
+     *
+     * @param array $verifyResponse Response from verify()
+     * @return bool
+     */
+    public function isVerified(array $verifyResponse): bool
+    {
+        return ($verifyResponse['status'] ?? 0) === 200 
+            && ($verifyResponse['msg'] ?? '') === 'checked';
     }
 
     /**
