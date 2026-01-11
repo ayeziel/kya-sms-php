@@ -10,9 +10,9 @@
             "email": "support@kyasms.com"
         }
     ],
-    "homepage": "https://github.com/kyasms/kya-sms-php",
+    "homepage": "https://github.com/ayeziel/kya-sms-php",
     "support": {
-        "issues": "https://github.com/kyasms/kya-sms-php/issues",
+        "issues": "https://github.com/ayeziel/kya-sms-php/issues",
         "docs": "https://docs.kyasms.com"
     },
     "require": {
